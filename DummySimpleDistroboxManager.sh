@@ -150,7 +150,7 @@ handle_custom_options() {
             ;;
         2)
             delete_distrobox
-            return 0
+            return 2
             ;;
         *)
             echo "Invalid choice"
