@@ -1,7 +1,7 @@
 # Dummy Simple Distrobox Manager Documentation
 
 ## Overview
-Dummy Simple Distrobox Manager is a user-friendly tool for managing Distrobox containers. It provides an simple way to create, manage, and maintain distroboxes with separate "working directories" for each container.
+Dummy Simple Distrobox Manager is a user-friendly tool for managing Distrobox containers. It provides a simple way to create, manage, and maintain distroboxes with separate "working directories" for each container.
 
 ### Key Concepts
 - Each distrobox has two components:
@@ -61,14 +61,14 @@ From the main menu, select a distrobox by its number to access these features:
 1. From the main menu, select `0` for Options
 2. Choose `2` to delete a distrobox
 3. Select the distrobox to delete
-4. Type the full name to confirm deletion
+4. Type the full name of the distrobox to confirm deletion
 
 Deletion process:
 - Removes the container
 - Deletes the working directory
 - Removes associated hot commands from `distroboxhotcmds.cfg`
 
-## Settings Location
+## Config Location
 
 - Configuration directory: `~/.config/dummysimpledistroboxmanager/`
 - Settings file: `settings.cfg`
