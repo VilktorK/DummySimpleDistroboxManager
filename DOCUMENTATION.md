@@ -1,19 +1,76 @@
 # Dummy Simple Distrobox Manager Documentation
 
-## Basic Overview:
+## Overview
+Dummy Simple Distrobox Manager is a user-friendly tool for managing Distrobox containers. It provides an simple way to create, manage, and maintain distroboxes with separate "working directories" for each container.
 
-Dummy Simple Distrobox Manager uses two references for every distrobox it creates.
+### Key Concepts
+- Each distrobox has two components:
+  - The container itself (managed by distrobox-create)
+  - A dedicated working directory for user files that the distrobox will enter on startup
+- The working directory serves as the container's home directory, keeping container-specific files separate from your host system's home directory
 
-The first is the actual distrobox itself created using distrobox-create and viewable with distrobox-list.
+## First-Time Setup
 
-The second is the "Working Directory" that contains all of the user files of that distrobox and is where the distrobox opens by default when entered. This is the directory you specified during initial setup and is listed as "DISTROBOX_DIR" within your settings.cfg
+1. When you first run the manager, you'll be prompted to choose place for your distrobox's working directories
+2. These directories will store all your distrobox user files
+3. You can either select an existing directory if you have used this script in the past or create a new one
+4. The choice is stored in `settings.cfg`
 
-Dummy Simple Distrobox Manager makes this distinction to give the user the ability to have a home directory for each of their distroboxes and so that the files used by the distroboxes to do not pollute the users primary home folder with files that are not relevant to the host.
+## Creating a New Distrobox
 
-This is a design choice that I as the developer have made, I may add the ability to not use this functionality later.
+1. From the main menu, select `0` for Options
+2. Choose `1` to create a new distrobox
+3. Select an image:
+   - Choose from recent images list
+   - Enter `0` to specify a custom image
+   - The five most recently used images will appear in the list
+   - This list is stored in `distroboximages.cfg`
+4. Enter a name for your new distrobox
+5. Choose whether to enable NVIDIA support
+6. Optional: Enter the distrobox immediately after creation
+   - When a distrobox is created a working directory of the same name will automatically be made in the directory you specified during initial setup
 
-## Getting Started:
+## Managing Distroboxes
 
+From the main menu, select a distrobox by its number to access these features:
 
+## Basic Operations
+1. Enter shell
+   - Opens a shell in the selected distrobox
+   - Automatically starts in the distrobox's working directory
 
+2. Modify hot commands
+   - Add custom commands for quick access
+   - Remove existing hot commands
+   - Hot commands are executed inside of the distrobox's working directory
+   
+3. Kill distrobox
+   - Stops the running distrobox instance
 
+4. Export application
+   - Makes applications installed in the distrobox available on the host system using `distrobox-export`
+
+## Hot Commands
+- Custom commands that can be executed by pressing their associated numbers
+- Appear as numbered options (5 and above) in the distrobox management menu
+- Executed within their distrobox's working directory
+- Saved to `distroboxhotcmds.cfg`
+
+## Deleting a Distrobox
+
+1. From the main menu, select `0` for Options
+2. Choose `2` to delete a distrobox
+3. Select the distrobox to delete
+4. Type the full name to confirm deletion
+
+Deletion process:
+- Removes the container
+- Deletes the working directory
+- Removes associated hot commands from `distroboxhotcmds.cfg`
+
+## Settings Location
+
+- Configuration directory: `~/.config/dummysimpledistroboxmanager/`
+- Settings file: `settings.cfg`
+- Hot commands: `distroboxhotcmds.cfg`
+- Image list: `distroboximages.cfg`

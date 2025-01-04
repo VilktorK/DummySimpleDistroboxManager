@@ -250,50 +250,82 @@ create_new_distrobox() {
     
     echo "0. Enter custom image"
     
-    read -p "Enter your choice (0-$((i-1))): " image_choice
-    
-    if [ "$image_choice" = "0" ]; then
-        read -p "Enter the custom image (format: repository:tag): " custom_image
-        if [ -z "$custom_image" ]; then
+    while true; do
+        read -p "Enter your choice (0-$((i-1))): " image_choice
+        
+        # Check if input is empty
+        if [ -z "$image_choice" ]; then
             echo "Operation cancelled."
             return 1
         fi
-        distrobox_image="$custom_image"
-    else
-        if [ "$image_choice" -ge 1 ] && [ "$image_choice" -lt "$i" ]; then
-            distrobox_image=$(sed -n "${image_choice}p" "$IMAGES_FILE")
-        else
-            echo "Invalid choice, operation cancelled."
-            return 1
+        
+        # Check if input is a number
+        if ! [[ "$image_choice" =~ ^[0-9]+$ ]]; then
+            echo "Please enter a valid number."
+            continue
         fi
-    fi
+        
+        if [ "$image_choice" = "0" ]; then
+            read -p "Enter the custom image (format: repository:tag): " custom_image
+            if [ -z "$custom_image" ]; then
+                echo "Operation cancelled."
+                return 1
+            fi
+            distrobox_image="$custom_image"
+            break
+        elif [ "$image_choice" -ge 1 ] && [ "$image_choice" -lt "$i" ]; then
+            distrobox_image=$(sed -n "${image_choice}p" "$IMAGES_FILE")
+            break
+        else
+            echo "Please enter a number between 0 and $((i-1))."
+        fi
+    done
 
     # Add the selected/entered image to recent images
     add_to_recent_images "$distrobox_image"
 
-    read -p "Enter the name for the new Distrobox: " distrobox_name
-    if [ -z "$distrobox_name" ]; then
-        echo "Operation cancelled."
-        return 1
-    fi
+    while true; do
+        read -p "Enter the name for the new Distrobox: " distrobox_name
+        if [ -z "$distrobox_name" ]; then
+            echo "Operation cancelled."
+            return 1
+        fi
 
-    # Check if distrobox with this name already exists
-    if distrobox list | grep -q "^$distrobox_name "; then
-        echo "A distrobox with name '$distrobox_name' already exists."
-        return 1
-    fi
+        # Make sure distrobox name is alphanumeric, dash, and underscore only
+        if ! [[ "$distrobox_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "Error: Distrobox name can only contain letters, numbers, dashes, and underscores."
+            continue
+        fi
+
+        # Check for duplicates
+        if distrobox list | grep -q "^$distrobox_name "; then
+            echo "Error: A distrobox with name '$distrobox_name' already exists."
+            continue
+        fi
+
+        # Check if directory already exists
+        if [ -d "$distrobox_working_dir/$distrobox_name" ]; then
+            echo "Error: Directory already exists for this distrobox name."
+            continue
+        fi
+        break
+    done
 
     # Create the working directory for the distrobox
     local distrobox_home="$distrobox_working_dir/$distrobox_name"
-    if [ ! -d "$distrobox_home" ]; then
-        mkdir -p "$distrobox_home"
-        if [ $? -ne 0 ]; then
-            echo "Failed to create working directory for distrobox."
-            return 1
-        fi
+    if ! mkdir -p "$distrobox_home" 2>/dev/null; then
+        echo "Failed to create working directory for distrobox: $distrobox_home"
+        echo "Please check permissions and try again."
+        return 1
     fi
     
-    read -p "Do you want to use NVIDIA support? (y/n): " nvidia_choice
+    while true; do
+        read -p "Do you want to use NVIDIA support? (y/n): " nvidia_choice
+        case "$nvidia_choice" in
+            [Yy]|[Nn]) break ;;
+            *) echo "Please enter 'y' or 'n'." ;;
+        esac
+    done
     
     create_command="distrobox create"
     create_command+=" --image $distrobox_image"
@@ -311,11 +343,14 @@ create_new_distrobox() {
     if eval "$create_command"; then
         echo -e "\nNew Distrobox created successfully!"
         echo "Working directory: $distrobox_home"
+        echo "Completing initial setup..."
         
-        read -p "Would you like to enter the distrobox now? (y/N): " enter_now
-        if [[ $enter_now =~ ^[Yy]$ ]]; then
-            distrobox enter "$distrobox_name"
-        fi
+
+        distrobox enter "$distrobox_name" -- true
+        
+        echo -e "\nSetup complete. Returning to manager..."
+        sleep 1
+        return 0
     else
         echo "Failed to create distrobox. Check the error message above."
         if [ -d "$distrobox_home" ]; then
