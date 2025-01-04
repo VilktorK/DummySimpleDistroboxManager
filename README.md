@@ -39,3 +39,11 @@ chmod +x BaseManager.sh
 ```
 
 5. Specify the directory where you want to store your distrobox working directories when prompted.
+
+ ## Usage
+
+Simply Run:
+```bash
+./DummySimpleDistroboxManager.sh
+```
+Refer to DOCUMENTATION.md or type "help" when in the main menu for a detailed explinations of all functions
