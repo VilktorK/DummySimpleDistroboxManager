@@ -1,5 +1,7 @@
 # Dummy Simple Distrobox Manager
 
+A dummy simple BASH script that simplifies the process of creating and using Distrobox Containers. 
+
 ![image](https://github.com/user-attachments/assets/e62a2708-7959-4bc2-9ef2-6fc9e9fb981c)
 
 ## Features
