@@ -1,7 +1,7 @@
 # Dummy Simple Distrobox Manager Documentation
 
 ## Overview
-Dummy Simple Distrobox Manager is a user-friendly tool for managing Distrobox containers. It provides a simple way to create, manage, and maintain distroboxes with separate "working directories" for each container.
+Dummy Simple Distrobox Manager is a dummy simple script for managing Distrobox containers. It provides a simple way to create, manage, and maintain distroboxes with separate "working directories" for each container.
 
 ### Key Concepts
 - Each distrobox has two components:
