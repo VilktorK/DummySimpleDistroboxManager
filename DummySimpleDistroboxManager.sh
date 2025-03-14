@@ -12,6 +12,7 @@ CONFIG_DIR="$HOME/.config/dummysimpledistroboxmanager"
 HOTCMDS_FILE="$CONFIG_DIR/distroboxhotcmds.cfg"
 SETTINGS_FILE="$CONFIG_DIR/settings.cfg"
 IMAGES_FILE="$CONFIG_DIR/distroboximages.cfg"
+STARTUP_CMDS_FILE="$CONFIG_DIR/startup_commands.cfg"
 
 # Create distroboximages.cfg and propagate it
 initialize_images_file() {
@@ -28,6 +29,7 @@ mkdir -p "$CONFIG_DIR"
 touch "$HOTCMDS_FILE"
 touch "$SETTINGS_FILE"
 touch "$IMAGES_FILE"
+touch "$STARTUP_CMDS_FILE"
 
 initialize_images_file
 
@@ -105,12 +107,101 @@ add_to_recent_images() {
     rm "$temp_file"
 }
 
+# Function to manage startup commands
+manage_startup_commands() {
+    echo -e "\n\033[1;34mManage Distrobox Startup Commands\033[0m"
+    echo "These commands will run automatically when a distrobox container starts"
+    echo -e "\033[90m----------------------------------------\033[0m"
+    
+    if [ -s "$STARTUP_CMDS_FILE" ]; then
+        echo "Current startup commands:"
+        local i=1
+        while IFS= read -r cmd; do
+            cmd_color_code=$(generate_color_code "$cmd")
+            printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd"
+            i=$((i+1))
+        done < "$STARTUP_CMDS_FILE"
+    else
+        echo "No startup commands configured."
+    fi
+    
+    echo -e "\n1. Add startup command"
+    echo "2. Remove startup command"
+    echo "0. Return to options"
+    
+    read -p "Enter your choice: " cmd_option
+    case $cmd_option in
+        1)
+            add_startup_command
+            ;;
+        2)
+            remove_startup_command
+            ;;
+        0)
+            return
+            ;;
+        *)
+            echo "Invalid choice"
+            ;;
+    esac
+}
+
+add_startup_command() {
+    read -p "Enter the command to run at distrobox startup: " new_cmd
+    
+    if [ -z "$new_cmd" ]; then
+        echo "Operation cancelled."
+        return
+    fi
+    
+    echo "$new_cmd" >> "$STARTUP_CMDS_FILE"
+    echo -e "\033[1;32mStartup command added successfully.\033[0m"
+    echo "Press Enter to continue..."
+    read
+}
+
+remove_startup_command() {
+    if [ ! -s "$STARTUP_CMDS_FILE" ]; then
+        echo "No startup commands to remove."
+        echo "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    echo "Select a command to remove:"
+    mapfile -t cmds < "$STARTUP_CMDS_FILE"
+    
+    for i in "${!cmds[@]}"; do
+        cmd_color_code=$(generate_color_code "${cmds[$i]}")
+        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$((i+1))" "${cmds[$i]}"
+    done
+    
+    read -p "Enter command number to remove (or press Enter to cancel): " remove_num
+    
+    if [ -z "$remove_num" ]; then
+        echo "Operation cancelled."
+        return
+    fi
+    
+    if [[ "$remove_num" =~ ^[0-9]+$ ]] && [ "$remove_num" -ge 1 ] && [ "$remove_num" -le "${#cmds[@]}" ]; then
+        temp_file=$(mktemp)
+        sed "$remove_num d" "$STARTUP_CMDS_FILE" > "$temp_file"
+        mv "$temp_file" "$STARTUP_CMDS_FILE"
+        echo -e "\033[1;32mStartup command removed successfully.\033[0m"
+    else
+        echo "Invalid selection."
+    fi
+    
+    echo "Press Enter to continue..."
+    read
+}
 
 # Override: Display options menu
 display_options_menu() {
     echo "Options:"
     echo "1. Create a new distrobox"
     echo "2. Delete a distrobox"
+    echo "3. Manage startup commands"
     echo "0. Back to main menu"
 }
 
@@ -150,6 +241,10 @@ handle_custom_options() {
             ;;
         2)
             delete_distrobox
+            return 2
+            ;;
+        3)
+            manage_startup_commands
             return 2
             ;;
         *)
@@ -360,10 +455,30 @@ create_new_distrobox() {
     fi
 }
 
-
 enter_distrobox() {
     local distrobox_name="$1"
-    distrobox enter "$distrobox_name" -- bash -c "cd ~; exec bash"
+    
+    # Create a temporary script to run startup commands
+    if [ -s "$STARTUP_CMDS_FILE" ]; then
+        local temp_script=$(mktemp)
+        echo "#!/bin/bash" > "$temp_script"
+        echo "# Auto-generated startup script" >> "$temp_script"
+        echo "cd ~" >> "$temp_script"
+        echo "" >> "$temp_script"
+        echo "# Run configured startup commands" >> "$temp_script"
+        cat "$STARTUP_CMDS_FILE" >> "$temp_script"
+        echo "" >> "$temp_script"
+        echo "# Start interactive shell" >> "$temp_script"
+        echo "exec bash" >> "$temp_script"
+        chmod +x "$temp_script"
+        
+        # Enter distrobox with the startup script
+        distrobox enter "$distrobox_name" -- bash -c "$(cat $temp_script)"
+        rm "$temp_script"
+    else
+        # No startup commands, just enter normally
+        distrobox enter "$distrobox_name" -- bash -c "cd ~; exec bash"
+    fi
 }
 
 export_application() {
