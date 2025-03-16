@@ -12,7 +12,7 @@ CONFIG_DIR="$HOME/.config/dummysimpledistroboxmanager"
 HOTCMDS_FILE="$CONFIG_DIR/distroboxhotcmds.cfg"
 SETTINGS_FILE="$CONFIG_DIR/settings.cfg"
 IMAGES_FILE="$CONFIG_DIR/distroboximages.cfg"
-STARTUP_CMDS_FILE="$CONFIG_DIR/startup_commands.cfg"
+STARTUP_CMDS_FILE="$CONFIG_DIR/global_startup_commands.cfg"
 
 # Create distroboximages.cfg and propagate it
 initialize_images_file() {
@@ -82,7 +82,7 @@ if ! get_distrobox_working_directory > /dev/null; then
         echo "No distrobox working directory set. Exiting..."
         exit 1
     fi
-    
+
     if ! get_distrobox_working_directory > /dev/null; then
         echo "Error: Failed to properly set up distrobox working directory."
         exit 1
@@ -93,15 +93,15 @@ fi
 add_to_recent_images() {
     local new_image="$1"
     local temp_file=$(mktemp)
-    
+
     # Add new image at the top
     echo "$new_image" > "$temp_file"
-    
+
     # Add existing images, skipping duplicates
     if [ -f "$IMAGES_FILE" ]; then
         grep -v "^$new_image\$" "$IMAGES_FILE" >> "$temp_file"
     fi
-    
+
     # Keep only the most recent 5 entries
     head -n 5 "$temp_file" > "$IMAGES_FILE"
     rm "$temp_file"
@@ -112,7 +112,7 @@ manage_startup_commands() {
     echo -e "\n\033[1;34mManage Distrobox Startup Commands\033[0m"
     echo "These commands will run automatically when a distrobox container starts"
     echo -e "\033[90m----------------------------------------\033[0m"
-    
+
     if [ -s "$STARTUP_CMDS_FILE" ]; then
         echo "Current startup commands:"
         local i=1
@@ -124,11 +124,11 @@ manage_startup_commands() {
     else
         echo "No startup commands configured."
     fi
-    
+
     echo -e "\n1. Add startup command"
     echo "2. Remove startup command"
     echo "0. Return to options"
-    
+
     read -p "Enter your choice: " cmd_option
     case $cmd_option in
         1)
@@ -148,12 +148,12 @@ manage_startup_commands() {
 
 add_startup_command() {
     read -p "Enter the command to run at distrobox startup: " new_cmd
-    
+
     if [ -z "$new_cmd" ]; then
         echo "Operation cancelled."
         return
     fi
-    
+
     echo "$new_cmd" >> "$STARTUP_CMDS_FILE"
     echo -e "\033[1;32mStartup command added successfully.\033[0m"
     echo "Press Enter to continue..."
@@ -167,22 +167,22 @@ remove_startup_command() {
         read
         return
     fi
-    
+
     echo "Select a command to remove:"
     mapfile -t cmds < "$STARTUP_CMDS_FILE"
-    
+
     for i in "${!cmds[@]}"; do
         cmd_color_code=$(generate_color_code "${cmds[$i]}")
         printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$((i+1))" "${cmds[$i]}"
     done
-    
+
     read -p "Enter command number to remove (or press Enter to cancel): " remove_num
-    
+
     if [ -z "$remove_num" ]; then
         echo "Operation cancelled."
         return
     fi
-    
+
     if [[ "$remove_num" =~ ^[0-9]+$ ]] && [ "$remove_num" -ge 1 ] && [ "$remove_num" -le "${#cmds[@]}" ]; then
         temp_file=$(mktemp)
         sed "$remove_num d" "$STARTUP_CMDS_FILE" > "$temp_file"
@@ -191,7 +191,7 @@ remove_startup_command() {
     else
         echo "Invalid selection."
     fi
-    
+
     echo "Press Enter to continue..."
     read
 }
@@ -257,11 +257,11 @@ handle_custom_options() {
 handle_option() {
     local distrobox_name="$1"
     local option="$2"
-    
+
     case $option in
         1)
             enter_distrobox "$distrobox_name"
-            return 2 
+            return 2
             ;;
         2)
             echo "1. Add hot command"
@@ -304,7 +304,7 @@ execute_hot_command() {
     local command_num="$2"
     local command=""
     local i=0
-    
+
     while IFS=: read -r box cmd || [ -n "$box" ]; do
         if [ "$box" = "$distrobox_name" ]; then
             i=$((i+1))
@@ -314,7 +314,7 @@ execute_hot_command() {
             fi
         fi
     done < "$HOTCMDS_FILE"
-    
+
     if [ -n "$command" ]; then
         distrobox enter "$distrobox_name" -- bash -c "$command"
         echo "Command executed. Press Enter to continue..."
@@ -335,31 +335,31 @@ create_new_distrobox() {
 
     echo "Choose an image for the new Distrobox:"
     echo "Recent images:"
-    
+
     # Display recent images
     local i=1
     while IFS= read -r image || [ -n "$image" ]; do
         echo "$i. $image"
         i=$((i+1))
     done < "$IMAGES_FILE"
-    
+
     echo "0. Enter custom image"
-    
+
     while true; do
         read -p "Enter your choice (0-$((i-1))): " image_choice
-        
+
         # Check if input is empty
         if [ -z "$image_choice" ]; then
             echo "Operation cancelled."
             return 1
         fi
-        
+
         # Check if input is a number
         if ! [[ "$image_choice" =~ ^[0-9]+$ ]]; then
             echo "Please enter a valid number."
             continue
         fi
-        
+
         if [ "$image_choice" = "0" ]; then
             read -p "Enter the custom image (format: repository:tag): " custom_image
             if [ -z "$custom_image" ]; then
@@ -413,7 +413,7 @@ create_new_distrobox() {
         echo "Please check permissions and try again."
         return 1
     fi
-    
+
     while true; do
         read -p "Do you want to use NVIDIA support? (y/n): " nvidia_choice
         case "$nvidia_choice" in
@@ -421,12 +421,12 @@ create_new_distrobox() {
             *) echo "Please enter 'y' or 'n'." ;;
         esac
     done
-    
+
     create_command="distrobox create"
     create_command+=" --image $distrobox_image"
     create_command+=" --name $distrobox_name"
     create_command+=" --home $distrobox_home"
-    
+
     if [ "$nvidia_choice" = "y" ] || [ "$nvidia_choice" = "Y" ]; then
         create_command+=" --nvidia"
     fi
@@ -434,15 +434,15 @@ create_new_distrobox() {
     echo "Creating distrobox with command:"
     echo "$create_command"
     echo
-    
+
     if eval "$create_command"; then
         echo -e "\nNew Distrobox created successfully!"
         echo "Working directory: $distrobox_home"
         echo "Completing initial setup..."
-        
+
 
         distrobox enter "$distrobox_name" -- true
-        
+
         echo -e "\nSetup complete. Returning to manager..."
         sleep 1
         return 0
@@ -457,7 +457,7 @@ create_new_distrobox() {
 
 enter_distrobox() {
     local distrobox_name="$1"
-    
+
     # Create a temporary script to run startup commands
     if [ -s "$STARTUP_CMDS_FILE" ]; then
         local temp_script=$(mktemp)
@@ -471,7 +471,7 @@ enter_distrobox() {
         echo "# Start interactive shell" >> "$temp_script"
         echo "exec bash" >> "$temp_script"
         chmod +x "$temp_script"
-        
+
         # Enter distrobox with the startup script
         distrobox enter "$distrobox_name" -- bash -c "$(cat $temp_script)"
         rm "$temp_script"
@@ -511,47 +511,47 @@ delete_distrobox() {
     read -p "Enter the number of the Distrobox to delete: " delete_choice
     if [ "$delete_choice" -ge 1 ] && [ "$delete_choice" -le "${#distroboxes[@]}" ]; then
         selected_distrobox="${distroboxes[$((delete_choice-1))]}"
-        
+
         # Safety check 1: Ensure the name doesn't contain dangerous characters
         if echo "$selected_distrobox" | grep -q '[/;:|]'; then
             echo "Error: Distrobox name contains invalid characters"
             return 1
         fi
-        
+
         local distrobox_working_dir=$(get_distrobox_working_directory)
         if [ $? -ne 0 ]; then
             echo "Error: Could not determine distrobox working directory"
             return 1
         fi
-        
+
         # Safety check 2: Construct and verify the full path
         local distrobox_path="$distrobox_working_dir/$selected_distrobox"
-        
+
         # Safety check 3: Ensure the path is actually under the working directory
         if [[ ! "$(realpath "$distrobox_path")" =~ ^"$(realpath "$distrobox_working_dir")"/ ]]; then
             echo "Error: Security check failed - path is outside of working directory"
             return 1
         fi
-        
+
         # Safety check 4: Verify the directory exists and is a directory
         if [ ! -d "$distrobox_path" ]; then
             echo "Error: Distrobox directory not found or is not a directory"
             return 1
         fi
-        
+
         echo "This will:"
         echo "1. Delete the Distrobox container '$selected_distrobox'"
-        echo "2. Remove the working directory '$distrobox_path'"
+        echo "2. Delete the working directory '$distrobox_path'"
         echo "3. Delete all associated hot commands"
         read -p "To confirm deletion, Type the name of the distrobox ($selected_distrobox): " confirm
-        
+
         if [ "$confirm" = "$selected_distrobox" ]; then
             # Remove the container first
             if ! distrobox-rm -f "$selected_distrobox"; then
                 echo "Error: Failed to remove distrobox container"
                 return 1
             fi
-            
+
             # Safely remove the directory
             if [ -d "$distrobox_path" ]; then
                 # Final safety check before removal
@@ -566,12 +566,12 @@ delete_distrobox() {
                     return 1
                 fi
             fi
-            
+
             # Remove hot commands
             local temp_file=$(mktemp)
             grep -v "^$selected_distrobox:" "$HOTCMDS_FILE" > "$temp_file"
             mv "$temp_file" "$HOTCMDS_FILE"
-            
+
             echo "Distrobox $selected_distrobox and its associated files have been deleted."
         else
             echo "Deletion aborted: name did not match."
