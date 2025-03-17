@@ -56,6 +56,9 @@ From the main menu, select a distrobox by its number to access these features:
 - Executed within their distrobox's working directory
 - Saved to `distroboxhotcmds.cfg`
 
+## Exiting a Distrobox
+- Type `exit` to leave an active distrobox and return to the main menu
+
 ## Deleting a Distrobox
 
 1. From the main menu, select `0` for Options
