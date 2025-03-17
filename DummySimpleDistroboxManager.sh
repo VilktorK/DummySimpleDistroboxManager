@@ -33,6 +33,9 @@ touch "$IMAGES_FILE"
 touch "$GLOBAL_STARTUP_CMDS_FILE"
 touch "$CONTAINER_STARTUP_CMDS_FILE"
 
+# Amount of entries in the container's menu
+CONTAINER_MENU_ITEMS=6
+
 initialize_images_file
 
 set_distrobox_working_directory() {
@@ -417,24 +420,81 @@ handle_option() {
     esac
 }
 
-# Override base execute_hot_command for distrobox-specific behavior
+remove_hot_command() {
+    local distrobox_name="$1"
+    local hot_cmds=()
+    local hot_cmd_lines=()
+    local line_num=1
+
+    # Collect commands and their line numbers
+    while IFS=: read -r box cmd || [ -n "$box" ]; do
+        if [ "$box" = "$distrobox_name" ]; then
+            hot_cmds+=("$cmd")
+            hot_cmd_lines+=("$line_num")
+        fi
+        line_num=$((line_num+1))
+    done < "$HOTCMDS_FILE"
+
+    if [ ${#hot_cmds[@]} -eq 0 ]; then
+        echo "No hot commands to remove for $distrobox_name."
+        echo "Press Enter to continue..."
+        read
+        return
+    fi
+
+    echo "Select a hot command to remove:"
+
+    # Display commands with their menu numbers (starting from CONTAINER_MENU_ITEMS)
+    local menu_number=$CONTAINER_MENU_ITEMS
+    for i in "${!hot_cmds[@]}"; do
+        cmd_color_code=$(generate_color_code "$distrobox_name:${hot_cmds[$i]}")
+        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$menu_number" "${hot_cmds[$i]}"
+        menu_number=$((menu_number+1))
+    done
+
+    read -p "Enter command number to remove (or press Enter to cancel): " remove_num
+
+    if [ -z "$remove_num" ]; then
+        echo "Operation cancelled."
+        return
+    fi
+
+    # Convert menu number to array index
+    if [[ "$remove_num" =~ ^[0-9]+$ ]] && [ "$remove_num" -ge $CONTAINER_MENU_ITEMS ] && [ "$remove_num" -le $(($CONTAINER_MENU_ITEMS - 1 + ${#hot_cmds[@]})) ]; then
+        local array_index=$((remove_num - $CONTAINER_MENU_ITEMS))
+        local line_to_remove=${hot_cmd_lines[$array_index]}
+
+        # Create a temp file and remove the line
+        temp_file=$(mktemp)
+        sed "${line_to_remove}d" "$HOTCMDS_FILE" > "$temp_file"
+        mv "$temp_file" "$HOTCMDS_FILE"
+        echo -e "\033[1;32mHot command removed successfully.\033[0m"
+    else
+        echo "Invalid selection."
+    fi
+
+    echo "Press Enter to continue..."
+    read
+}
+
 execute_hot_command() {
     local distrobox_name="$1"
     local command_num="$2"
-    local command=""
-    local i=0
 
+    # Get all hot commands for this distrobox
+    local hot_cmds=()
     while IFS=: read -r box cmd || [ -n "$box" ]; do
         if [ "$box" = "$distrobox_name" ]; then
-            i=$((i+1))
-            if [ $i -eq $command_num ]; then
-                command="$cmd"
-                break
-            fi
+            hot_cmds+=("$cmd")
         fi
     done < "$HOTCMDS_FILE"
 
-    if [ -n "$command" ]; then
+    # Convert the menu number to array index
+    local array_index=$((command_num - $CONTAINER_MENU_ITEMS))
+
+    # Check if index is valid
+    if [ "$array_index" -ge 0 ] && [ "$array_index" -lt "${#hot_cmds[@]}" ]; then
+        local command="${hot_cmds[$array_index]}"
         distrobox enter "$distrobox_name" -- bash -c "$command"
         echo "Command executed. Press Enter to continue..."
         read
