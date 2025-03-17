@@ -12,7 +12,8 @@ CONFIG_DIR="$HOME/.config/dummysimpledistroboxmanager"
 HOTCMDS_FILE="$CONFIG_DIR/distroboxhotcmds.cfg"
 SETTINGS_FILE="$CONFIG_DIR/settings.cfg"
 IMAGES_FILE="$CONFIG_DIR/distroboximages.cfg"
-STARTUP_CMDS_FILE="$CONFIG_DIR/global_startup_commands.cfg"
+GLOBAL_STARTUP_CMDS_FILE="$CONFIG_DIR/global_startup_commands.cfg"
+CONTAINER_STARTUP_CMDS_FILE="$CONFIG_DIR/container_startup_commands.cfg"
 
 # Create distroboximages.cfg and propagate it
 initialize_images_file() {
@@ -29,7 +30,8 @@ mkdir -p "$CONFIG_DIR"
 touch "$HOTCMDS_FILE"
 touch "$SETTINGS_FILE"
 touch "$IMAGES_FILE"
-touch "$STARTUP_CMDS_FILE"
+touch "$GLOBAL_STARTUP_CMDS_FILE"
+touch "$CONTAINER_STARTUP_CMDS_FILE"
 
 initialize_images_file
 
@@ -107,35 +109,35 @@ add_to_recent_images() {
     rm "$temp_file"
 }
 
-# Function to manage startup commands
-manage_startup_commands() {
-    echo -e "\n\033[1;34mManage Distrobox Startup Commands\033[0m"
-    echo "These commands will run automatically when a distrobox container starts"
+# Function to manage global startup commands
+manage_global_startup_commands() {
+    echo -e "\n\033[1;34mManage Global Distrobox Startup Commands\033[0m"
+    echo "These commands will run automatically when any distrobox container starts"
     echo -e "\033[90m----------------------------------------\033[0m"
 
-    if [ -s "$STARTUP_CMDS_FILE" ]; then
-        echo "Current startup commands:"
+    if [ -s "$GLOBAL_STARTUP_CMDS_FILE" ]; then
+        echo "Current global startup commands:"
         local i=1
         while IFS= read -r cmd; do
             cmd_color_code=$(generate_color_code "$cmd")
             printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd"
             i=$((i+1))
-        done < "$STARTUP_CMDS_FILE"
+        done < "$GLOBAL_STARTUP_CMDS_FILE"
     else
-        echo "No startup commands configured."
+        echo "No global startup commands configured."
     fi
 
-    echo -e "\n1. Add startup command"
-    echo "2. Remove startup command"
+    echo -e "\n1. Add global startup command"
+    echo "2. Remove global startup command"
     echo "0. Return to options"
 
     read -p "Enter your choice: " cmd_option
     case $cmd_option in
         1)
-            add_startup_command
+            add_global_startup_command
             ;;
         2)
-            remove_startup_command
+            remove_global_startup_command
             ;;
         0)
             return
@@ -146,30 +148,30 @@ manage_startup_commands() {
     esac
 }
 
-add_startup_command() {
-    read -p "Enter the command to run at distrobox startup: " new_cmd
+add_global_startup_command() {
+    read -p "Enter the command to run at distrobox startup (for all containers): " new_cmd
 
     if [ -z "$new_cmd" ]; then
         echo "Operation cancelled."
         return
     fi
 
-    echo "$new_cmd" >> "$STARTUP_CMDS_FILE"
-    echo -e "\033[1;32mStartup command added successfully.\033[0m"
+    echo "$new_cmd" >> "$GLOBAL_STARTUP_CMDS_FILE"
+    echo -e "\033[1;32mGlobal startup command added successfully.\033[0m"
     echo "Press Enter to continue..."
     read
 }
 
-remove_startup_command() {
-    if [ ! -s "$STARTUP_CMDS_FILE" ]; then
-        echo "No startup commands to remove."
+remove_global_startup_command() {
+    if [ ! -s "$GLOBAL_STARTUP_CMDS_FILE" ]; then
+        echo "No global startup commands to remove."
         echo "Press Enter to continue..."
         read
         return
     fi
 
     echo "Select a command to remove:"
-    mapfile -t cmds < "$STARTUP_CMDS_FILE"
+    mapfile -t cmds < "$GLOBAL_STARTUP_CMDS_FILE"
 
     for i in "${!cmds[@]}"; do
         cmd_color_code=$(generate_color_code "${cmds[$i]}")
@@ -185,9 +187,122 @@ remove_startup_command() {
 
     if [[ "$remove_num" =~ ^[0-9]+$ ]] && [ "$remove_num" -ge 1 ] && [ "$remove_num" -le "${#cmds[@]}" ]; then
         temp_file=$(mktemp)
-        sed "$remove_num d" "$STARTUP_CMDS_FILE" > "$temp_file"
-        mv "$temp_file" "$STARTUP_CMDS_FILE"
-        echo -e "\033[1;32mStartup command removed successfully.\033[0m"
+        sed "$remove_num d" "$GLOBAL_STARTUP_CMDS_FILE" > "$temp_file"
+        mv "$temp_file" "$GLOBAL_STARTUP_CMDS_FILE"
+        echo -e "\033[1;32mGlobal startup command removed successfully.\033[0m"
+    else
+        echo "Invalid selection."
+    fi
+
+    echo "Press Enter to continue..."
+    read
+}
+
+# Function to manage container-specific startup commands
+manage_container_startup_commands() {
+    local distrobox_name="$1"
+
+    echo -e "\n\033[1;34mManage Container-Specific Startup Commands for $distrobox_name\033[0m"
+    echo "These commands will run automatically when this specific container starts"
+    echo -e "\033[90m----------------------------------------\033[0m"
+
+    # Display current container-specific commands
+    local container_cmds=()
+    if [ -s "$CONTAINER_STARTUP_CMDS_FILE" ]; then
+        while IFS=: read -r box cmd || [ -n "$box" ]; do
+            if [ "$box" = "$distrobox_name" ]; then
+                container_cmds+=("$cmd")
+            fi
+        done < "$CONTAINER_STARTUP_CMDS_FILE"
+    fi
+
+    if [ ${#container_cmds[@]} -gt 0 ]; then
+        echo "Current container-specific startup commands for $distrobox_name:"
+        for i in "${!container_cmds[@]}"; do
+            cmd_color_code=$(generate_color_code "${container_cmds[$i]}")
+            printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$((i+1))" "${container_cmds[$i]}"
+        done
+    else
+        echo "No container-specific startup commands configured for $distrobox_name."
+    fi
+
+    echo -e "\n1. Add container-specific startup command"
+    echo "2. Remove container-specific startup command"
+    echo "0. Return to container menu"
+
+    read -p "Enter your choice: " cmd_option
+    case $cmd_option in
+        1)
+            add_container_startup_command "$distrobox_name"
+            ;;
+        2)
+            remove_container_startup_command "$distrobox_name"
+            ;;
+        0)
+            return
+            ;;
+        *)
+            echo "Invalid choice"
+            ;;
+    esac
+}
+
+add_container_startup_command() {
+    local distrobox_name="$1"
+    read -p "Enter the command to run at startup for $distrobox_name: " new_cmd
+
+    if [ -z "$new_cmd" ]; then
+        echo "Operation cancelled."
+        return
+    fi
+
+    echo "$distrobox_name:$new_cmd" >> "$CONTAINER_STARTUP_CMDS_FILE"
+    echo -e "\033[1;32mContainer-specific startup command added successfully.\033[0m"
+    echo "Press Enter to continue..."
+    read
+}
+
+remove_container_startup_command() {
+    local distrobox_name="$1"
+    local container_cmds=()
+    local container_cmd_lines=()
+    local line_num=1
+
+    # Collect commands and their line numbers
+    while IFS=: read -r box cmd || [ -n "$box" ]; do
+        if [ "$box" = "$distrobox_name" ]; then
+            container_cmds+=("$cmd")
+            container_cmd_lines+=("$line_num")
+        fi
+        line_num=$((line_num+1))
+    done < "$CONTAINER_STARTUP_CMDS_FILE"
+
+    if [ ${#container_cmds[@]} -eq 0 ]; then
+        echo "No container-specific startup commands to remove for $distrobox_name."
+        echo "Press Enter to continue..."
+        read
+        return
+    fi
+
+    echo "Select a command to remove:"
+    for i in "${!container_cmds[@]}"; do
+        cmd_color_code=$(generate_color_code "${container_cmds[$i]}")
+        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$((i+1))" "${container_cmds[$i]}"
+    done
+
+    read -p "Enter command number to remove (or press Enter to cancel): " remove_num
+
+    if [ -z "$remove_num" ]; then
+        echo "Operation cancelled."
+        return
+    fi
+
+    if [[ "$remove_num" =~ ^[0-9]+$ ]] && [ "$remove_num" -ge 1 ] && [ "$remove_num" -le "${#container_cmds[@]}" ]; then
+        line_to_remove=${container_cmd_lines[$((remove_num-1))]}
+        temp_file=$(mktemp)
+        sed "${line_to_remove}d" "$CONTAINER_STARTUP_CMDS_FILE" > "$temp_file"
+        mv "$temp_file" "$CONTAINER_STARTUP_CMDS_FILE"
+        echo -e "\033[1;32mContainer-specific startup command removed successfully.\033[0m"
     else
         echo "Invalid selection."
     fi
@@ -201,7 +316,7 @@ display_options_menu() {
     echo "Options:"
     echo "1. Create a new distrobox"
     echo "2. Delete a distrobox"
-    echo "3. Manage startup commands"
+    echo "3. Manage global startup commands"
     echo "0. Back to main menu"
 }
 
@@ -213,13 +328,14 @@ display_options_and_commands() {
     echo "Options:"
     echo "1. Enter shell"
     echo "2. Modify hot commands"
-    echo "3. Kill distrobox"
-    echo "4. Export application"
+    echo "3. Manage container startup commands"
+    echo "4. Kill distrobox"
+    echo "5. Export application"
     echo "0. Back to main menu"
     echo "------------------------------"
     echo "Hot commands:"
     if [ -f "$HOTCMDS_FILE" ]; then
-        local i=4
+        local i=5
         while IFS=: read -r box cmd || [ -n "$box" ]; do
             if [ "$box" = "$distrobox_name" ]; then
                 i=$((i+1))
@@ -244,7 +360,7 @@ handle_custom_options() {
             return 2
             ;;
         3)
-            manage_startup_commands
+            manage_global_startup_commands
             return 2
             ;;
         *)
@@ -277,17 +393,20 @@ handle_option() {
             esac
             ;;
         3)
-            kill_distrobox "$distrobox_name"
+            manage_container_startup_commands "$distrobox_name"
             ;;
         4)
+            kill_distrobox "$distrobox_name"
+            ;;
+        5)
             export_application "$distrobox_name"
             ;;
         0)
             return 2
             ;;
         *)
-            if [ "$option" -gt 4 ]; then
-                hot_cmd_num=$((option - 4))
+            if [ "$option" -gt 5 ]; then
+                hot_cmd_num=$((option - 5))
                 execute_hot_command "$distrobox_name" "$hot_cmd_num"
             else
                 echo "Invalid choice"
@@ -459,26 +578,38 @@ enter_distrobox() {
     local distrobox_name="$1"
 
     # Create a temporary script to run startup commands
-    if [ -s "$STARTUP_CMDS_FILE" ]; then
-        local temp_script=$(mktemp)
-        echo "#!/bin/bash" > "$temp_script"
-        echo "# Auto-generated startup script" >> "$temp_script"
-        echo "cd ~" >> "$temp_script"
-        echo "" >> "$temp_script"
-        echo "# Run configured startup commands" >> "$temp_script"
-        cat "$STARTUP_CMDS_FILE" >> "$temp_script"
-        echo "" >> "$temp_script"
-        echo "# Start interactive shell" >> "$temp_script"
-        echo "exec bash" >> "$temp_script"
-        chmod +x "$temp_script"
+    local temp_script=$(mktemp)
+    echo "#!/bin/bash" > "$temp_script"
+    echo "# Auto-generated startup script" >> "$temp_script"
+    echo "cd ~" >> "$temp_script"
+    echo "" >> "$temp_script"
 
-        # Enter distrobox with the startup script
-        distrobox enter "$distrobox_name" -- bash -c "$(cat $temp_script)"
-        rm "$temp_script"
-    else
-        # No startup commands, just enter normally
-        distrobox enter "$distrobox_name" -- bash -c "cd ~; exec bash"
+    # Add global startup commands if they exist
+    if [ -s "$GLOBAL_STARTUP_CMDS_FILE" ]; then
+        echo "# Run global startup commands" >> "$temp_script"
+        cat "$GLOBAL_STARTUP_CMDS_FILE" >> "$temp_script"
+        echo "" >> "$temp_script"
     fi
+
+    # Add container-specific startup commands if they exist
+    if [ -s "$CONTAINER_STARTUP_CMDS_FILE" ]; then
+        echo "# Run container-specific startup commands" >> "$temp_script"
+        while IFS=: read -r box cmd || [ -n "$box" ]; do
+            if [ "$box" = "$distrobox_name" ]; then
+                echo "$cmd" >> "$temp_script"
+            fi
+        done < "$CONTAINER_STARTUP_CMDS_FILE"
+        echo "" >> "$temp_script"
+    fi
+
+    # Start interactive shell
+    echo "# Start interactive shell" >> "$temp_script"
+    echo "exec bash" >> "$temp_script"
+    chmod +x "$temp_script"
+
+    # Enter distrobox with the startup script
+    distrobox enter "$distrobox_name" -- bash -c "$(cat $temp_script)"
+    rm "$temp_script"
 }
 
 export_application() {
@@ -543,6 +674,7 @@ delete_distrobox() {
         echo "1. Delete the Distrobox container '$selected_distrobox'"
         echo "2. Delete the working directory '$distrobox_path'"
         echo "3. Delete all associated hot commands"
+        echo "4. Delete all associated container startup commands"
         read -p "To confirm deletion, Type the name of the distrobox ($selected_distrobox): " confirm
 
         if [ "$confirm" = "$selected_distrobox" ]; then
@@ -567,10 +699,14 @@ delete_distrobox() {
                 fi
             fi
 
-            # Remove hot commands
+            # Remove hot commands and container startup commands
             local temp_file=$(mktemp)
             grep -v "^$selected_distrobox:" "$HOTCMDS_FILE" > "$temp_file"
             mv "$temp_file" "$HOTCMDS_FILE"
+
+            temp_file=$(mktemp)
+            grep -v "^$selected_distrobox:" "$CONTAINER_STARTUP_CMDS_FILE" > "$temp_file"
+            mv "$temp_file" "$CONTAINER_STARTUP_CMDS_FILE"
 
             echo "Distrobox $selected_distrobox and its associated files have been deleted."
         else
