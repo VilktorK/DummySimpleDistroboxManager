@@ -409,8 +409,7 @@ handle_option() {
             ;;
         *)
             if [ "$option" -gt 5 ]; then
-                hot_cmd_num=$((option - 5))
-                execute_hot_command "$distrobox_name" "$hot_cmd_num"
+                execute_hot_command "$distrobox_name" "$option"
             else
                 echo "Invalid choice"
                 echo "Press Enter to continue..."
