@@ -114,6 +114,7 @@ add_to_recent_images() {
 
 # Function to manage global startup commands
 manage_global_startup_commands() {
+    clear
     echo -e "\n\033[1;34mManage Global Distrobox Startup Commands\033[0m"
     echo "These commands will run automatically when any distrobox container starts"
     echo -e "\033[90m----------------------------------------\033[0m"
@@ -204,6 +205,7 @@ remove_global_startup_command() {
 # Function to manage container-specific startup commands
 manage_container_startup_commands() {
     local distrobox_name="$1"
+    clear
 
     echo -e "\n\033[1;34mManage Container-Specific Startup Commands for $distrobox_name\033[0m"
     echo "These commands will run automatically when this specific container starts"
@@ -316,6 +318,7 @@ remove_container_startup_command() {
 
 # Override: Display options menu
 display_options_menu() {
+    clear
     echo "Options:"
     echo "1. Create a new distrobox"
     echo "2. Delete a distrobox"
@@ -326,6 +329,7 @@ display_options_menu() {
 # Override: Display distrobox options and commands
 display_options_and_commands() {
     local distrobox_name="$1"
+    clear
     local color_code=$(generate_color_code "$distrobox_name")
     echo -e "\n${color_code}Managing distrobox: $distrobox_name\033[0m"
     echo "Options:"
@@ -421,6 +425,7 @@ handle_option() {
 
 remove_hot_command() {
     local distrobox_name="$1"
+    clear
     local hot_cmds=()
     local hot_cmd_lines=()
     local line_num=1
@@ -505,6 +510,7 @@ execute_hot_command() {
 }
 
 create_new_distrobox() {
+    clear
     local distrobox_working_dir=$(get_distrobox_working_directory)
     if [ $? -ne 0 ]; then
         echo "Error: Could not determine distrobox working directory."
@@ -673,6 +679,7 @@ enter_distrobox() {
 
 export_application() {
     local distrobox_name="$1"
+    clear
     read -p "Enter the name of the application to export (or press Enter to cancel): " app_name
     if [ -z "$app_name" ]; then
         echo "Operation cancelled."
@@ -685,6 +692,7 @@ export_application() {
 
 kill_distrobox() {
     local distrobox_name="$1"
+    clear
     read -p "Are you sure you want to kill the running $distrobox_name instance? (y/N): " confirm
     if [[ $confirm =~ ^[Yy]$ ]]; then
         distrobox stop "$distrobox_name"
@@ -697,6 +705,7 @@ kill_distrobox() {
 }
 
 delete_distrobox() {
+    clear
     display_items distroboxes
     read -p "Enter the number of the Distrobox to delete: " delete_choice
     if [ "$delete_choice" -ge 1 ] && [ "$delete_choice" -le "${#distroboxes[@]}" ]; then
@@ -778,6 +787,7 @@ delete_distrobox() {
 
 # Main loop
 while true; do
+    clear
     distrobox_working_dir=$(get_distrobox_working_directory)
     if [ $? -ne 0 ]; then
         echo "Error: Could not determine distrobox working directory."
