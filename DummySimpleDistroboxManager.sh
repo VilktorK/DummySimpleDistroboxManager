@@ -16,6 +16,7 @@ GLOBAL_STARTUP_CMDS_FILE="$CONFIG_DIR/global_startup_commands.cfg"
 CONTAINER_STARTUP_CMDS_FILE="$CONFIG_DIR/container_startup_commands.cfg"
 LAST_ACCESS_FILE="$CONFIG_DIR/last_access.cfg"
 CREATION_TIME_FILE="$CONFIG_DIR/creation_time.cfg"
+FAVORITES_FILE="$CONFIG_DIR/favorites.cfg"
 
 # Initialize config files
 ensure_config_files
@@ -354,6 +355,7 @@ delete_distrobox() {
     clear
     display_items distroboxes
     read -p "Enter the number of the Distrobox to delete: " delete_choice
+
     if [ "$delete_choice" -ge 1 ] && [ "$delete_choice" -le "${#distroboxes[@]}" ]; then
         selected_distrobox="${distroboxes[$((delete_choice-1))]}"
 
@@ -432,6 +434,13 @@ delete_distrobox() {
             grep -v "^$selected_distrobox:" "$LAST_ACCESS_FILE" > "$temp_file" 2>/dev/null
             mv "$temp_file" "$LAST_ACCESS_FILE"
 
+            # Remove from favorites if present
+            if [ -f "$FAVORITES_FILE" ]; then
+                temp_file=$(mktemp)
+                grep -v "^$selected_distrobox$" "$FAVORITES_FILE" > "$temp_file"
+                mv "$temp_file" "$FAVORITES_FILE"
+            fi
+
             echo "Distrobox $selected_distrobox and its associated files have been deleted."
         else
             echo "Deletion aborted: name did not match."
@@ -451,6 +460,7 @@ display_options_menu() {
     echo "3. Manage global startup commands"
     echo "4. Manage sorting preferences"
     echo "5. Manage color mode"
+    echo "6. Manage favorites"  # New option
     echo "0. Back to main menu"
 }
 
@@ -504,6 +514,47 @@ handle_custom_options() {
         5)
             manage_color_mode
             return 2
+            ;;
+        6)
+            # Modified to show distrobox names in the favorites menu
+            clear
+            echo -e "\n\033[1;36mManage Favorites\033[0m"
+            echo -e "\033[90m----------------------------------------\033[0m"
+
+            # Display all items with favorite status
+            echo "Current items (★ = favorite):"
+            for i in "${!distroboxes[@]}"; do
+                item="${distroboxes[i]}"
+                color_code=$(generate_color_code "$item")
+                star="  "
+                if is_favorite "$item"; then
+                    star="★ "
+                fi
+                printf "%d. %s%b%s\033[0m\n" "$((i+1))" "$star" "$color_code" "$item"
+            done
+
+            echo -e "\nEnter the number of an item to toggle its favorite status"
+            echo "0. Return to options"
+
+            read -p "Enter your choice: " fav_choice
+
+            if [ "$fav_choice" = "0" ]; then
+                return 2
+            fi
+
+            # Check if selection is valid
+            if [ "$fav_choice" -ge 1 ] && [ "$fav_choice" -le "${#distroboxes[@]}" ]; then
+                local selected_item="${distroboxes[$((fav_choice-1))]}"
+                toggle_favorite "$selected_item"
+                echo "Press Enter to continue..."
+                read
+                return 2
+            else
+                echo "Invalid choice"
+                echo "Press Enter to continue..."
+                read
+                return 2
+            fi
             ;;
         *)
             echo "Invalid choice"
@@ -606,7 +657,50 @@ while true; do
             ;;
     esac
 
-    display_items distroboxes
+    # Get favorites
+    favorites=()
+    get_favorites distroboxes favorites
+
+    if [ ${#favorites[@]} -gt 0 ]; then
+        # Display favorites section
+        echo "Favorites:"
+        for i in "${!favorites[@]}"; do
+            item_name="${favorites[i]}"
+            color_code=$(generate_color_code "$item_name")
+            printf "%d. %b%s\033[0m\n" "$((i+1))" "$color_code" "$item_name"
+        done
+        echo ""
+    fi
+
+    # Display regular items
+    echo "Available ${MANAGER_NAME}s:"
+    # Start numbering after favorites
+    start_num=$((${#favorites[@]} + 1))
+    non_favorites=()
+
+    # Get non-favorites
+    for i in "${!distroboxes[@]}"; do
+        box="${distroboxes[i]}"
+        is_fav=0
+        for fav in "${favorites[@]}"; do
+            if [ "$box" = "$fav" ]; then
+                is_fav=1
+                break
+            fi
+        done
+        if [ $is_fav -eq 0 ]; then
+            non_favorites+=("$box")
+        fi
+    done
+
+    # Display non-favorites
+    for i in "${!non_favorites[@]}"; do
+        item_name="${non_favorites[i]}"
+        color_code=$(generate_color_code "$item_name")
+        printf "%d. %b%s\033[0m\n" "$((start_num + i))" "$color_code" "$item_name"
+    done
+    echo -e "\n0. Options"
+
     read -p "Enter the number of the distrobox you want to manage, 0 for Options, or type 'help': " choice
 
     if [ -z "$choice" ]; then
@@ -629,9 +723,20 @@ while true; do
         if [ $? -eq 2 ]; then
             continue
         fi
-    elif [ "$choice" -ge 1 ] && [ "$choice" -le "${#distroboxes[@]}" ]; then
-        selected_distrobox="${distroboxes[$((choice-1))]}"
-        manage_item "$selected_distrobox"
+    elif [ "$choice" -ge 1 ]; then
+        # Check if selection is in favorites range
+        if [ "$choice" -le "${#favorites[@]}" ]; then
+            selected_distrobox="${favorites[$(($choice-1))]}"
+            manage_item "$selected_distrobox"
+        # Check if selection is in non-favorites range
+        elif [ "$choice" -gt "${#favorites[@]}" ] && [ "$choice" -le "$((${#favorites[@]} + ${#non_favorites[@]}))" ]; then
+            non_fav_index=$(($choice - ${#favorites[@]} - 1))
+            selected_distrobox="${non_favorites[$non_fav_index]}"
+            manage_item "$selected_distrobox"
+        else
+            echo "Invalid choice"
+            sleep 1
+        fi
     else
         echo "Invalid choice"
     fi
