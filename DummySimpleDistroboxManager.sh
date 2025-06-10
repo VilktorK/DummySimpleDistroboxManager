@@ -127,11 +127,29 @@ execute_hot_command() {
     # Update last access time
     update_last_access "$distrobox_name"
 
-    # Get all hot commands for this distrobox
+    # Get all hot commands for this distrobox (handle both formats)
     local hot_cmds=()
-    while IFS=: read -r box cmd || [ -n "$box" ]; do
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Skip empty lines
+        [ -z "$line" ] && continue
+        
+        # Extract the box name (everything before first colon)
+        local box="${line%%:*}"
         if [ "$box" = "$distrobox_name" ]; then
-            hot_cmds+=("$cmd")
+            # Count colons to determine format
+            local colon_count=$(echo "$line" | tr -cd ':' | wc -c)
+            
+            if [ "$colon_count" -eq 1 ]; then
+                # Old format: box:command
+                local after_first_colon="${line#*:}"
+                hot_cmds+=("$after_first_colon")
+            else
+                # New format: box:name:command
+                local temp="${line#*:}"        # Remove first part (box:)
+                local name="${temp%%:*}"       # Get the name part (up to first colon)
+                local command="${temp#"$name":}"  # Remove name and its colon, leaving just command
+                hot_cmds+=("$command")
+            fi
         fi
     done < "$HOTCMDS_FILE"
 
@@ -141,7 +159,25 @@ execute_hot_command() {
     # Check if index is valid
     if [ "$array_index" -ge 0 ] && [ "$array_index" -lt "${#hot_cmds[@]}" ]; then
         local command="${hot_cmds[$array_index]}"
-        distrobox enter "$distrobox_name" -- bash -c "$command"
+        
+        # Create a temporary script file to handle complex commands with quotes
+        local temp_script=$(mktemp)
+        
+        # Write the script more carefully to handle quotes and special characters
+        cat > "$temp_script" << 'EOF'
+#!/bin/bash
+set -e
+EOF
+        # Add the command on a separate line to avoid quoting issues
+        echo "$command" >> "$temp_script"
+        chmod +x "$temp_script"
+        
+        # Execute the script inside the distrobox
+        distrobox enter "$distrobox_name" -- bash "$temp_script"
+        
+        # Clean up
+        rm "$temp_script"
+        
         echo "Command executed. Press Enter to continue..."
         read
     else
@@ -292,7 +328,6 @@ enter_distrobox() {
     # Create a temporary script to run startup commands
     local temp_script=$(mktemp)
     echo "#!/bin/bash" > "$temp_script"
-    echo "# Auto-generated startup script" >> "$temp_script"
     echo "cd ~" >> "$temp_script"
     echo "" >> "$temp_script"
 
@@ -460,7 +495,7 @@ display_options_menu() {
     echo "3. Manage global startup commands"
     echo "4. Manage sorting preferences"
     echo "5. Manage color mode"
-    echo "6. Manage favorites"  # New option
+    echo "6. Manage favorites"
     echo "0. Back to main menu"
 }
 
@@ -480,11 +515,29 @@ display_options_and_commands() {
     echo "Hot commands:"
     if [ -f "$HOTCMDS_FILE" ]; then
         local i=5
-        while IFS=: read -r box cmd || [ -n "$box" ]; do
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip empty lines
+            [ -z "$line" ] && continue
+            
+            # Extract the box name (everything before first colon)
+            local box="${line%%:*}"
             if [ "$box" = "$distrobox_name" ]; then
                 i=$((i+1))
-                cmd_color_code=$(generate_color_code "$distrobox_name:$cmd")
-                printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd"
+                
+                # Get everything after the first colon
+                local after_first_colon="${line#*:}"
+                
+                # Check if there's another colon (indicating new format with custom name)
+                if [[ "$after_first_colon" == *:* ]]; then
+                    # New format: box:name:command - extract the name (everything before second colon)
+                    local cmd_name="${after_first_colon%%:*}"
+                    cmd_color_code=$(generate_color_code "$distrobox_name:$cmd_name")
+                    printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd_name"
+                else
+                    # Old format: box:command - show the command
+                    cmd_color_code=$(generate_color_code "$distrobox_name:$after_first_colon")
+                    printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$after_first_colon"
+                fi
             fi
         done < "$HOTCMDS_FILE"
     else
@@ -575,6 +628,8 @@ handle_option() {
         2)
             echo "1. Add hot command"
             echo "2. Remove hot command"
+            echo "3. Rename hot command"
+            echo "4. Edit hot command"
             read -p "Enter your choice: " modify_option
             if [ -z "$modify_option" ]; then
                 return 0
@@ -582,6 +637,8 @@ handle_option() {
             case $modify_option in
                 1) add_hot_command "$distrobox_name" ;;
                 2) remove_hot_command "$distrobox_name" ;;
+                3) rename_hot_command "$distrobox_name" ;;
+                4) edit_hot_command "$distrobox_name" ;;
                 *) echo "Invalid choice" ;;
             esac
             ;;
