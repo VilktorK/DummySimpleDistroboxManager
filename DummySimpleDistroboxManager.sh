@@ -136,19 +136,31 @@ execute_hot_command() {
         # Extract the box name (everything before first colon)
         local box="${line%%:*}"
         if [ "$box" = "$distrobox_name" ]; then
-            # Get everything after the first colon
-            local after_first_colon="${line#*:}"
-            
-            # Check if there's another colon AND it's not part of a URL (indicating new format with custom name)
-            if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
-                # New format: box:name:command
-                local temp="${line#*:}"        # Remove first part (box:)
-                local name="${temp%%:*}"       # Get the name part (up to first colon)
-                local command="${temp#"$name":}"  # Remove name and its colon, leaving just command
-                hot_cmds+=("$command")
+            # Check for new exotic delimiter format first
+            if [[ "$line" == *":-:+:"* ]]; then
+                # New format with exotic delimiter
+                local after_delimiter="${line#*:-:+:}"
+                if [[ "$after_delimiter" == *":-:+:"* ]]; then
+                    # Format: box:-:+:name:-:+:command
+                    local command="${after_delimiter#*:-:+:}"
+                    hot_cmds+=("$command")
+                else
+                    # Format: box:-:+:command
+                    hot_cmds+=("$after_delimiter")
+                fi
             else
-                # Old format: box:command
-                hot_cmds+=("$after_first_colon")
+                # Legacy single-colon format
+                local after_first_colon="${line#*:}"
+                if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
+                    # Old format: box:name:command
+                    local temp="${line#*:}"
+                    local name="${temp%%:*}"
+                    local command="${temp#"$name":}"
+                    hot_cmds+=("$command")
+                else
+                    # Old format: box:command
+                    hot_cmds+=("$after_first_colon")
+                fi
             fi
         fi
     done < "$HOTCMDS_FILE"
@@ -519,24 +531,44 @@ display_options_and_commands() {
             # Skip empty lines
             [ -z "$line" ] && continue
             
-            # Extract the box name (everything before first colon)
-            local box="${line%%:*}"
+            # Extract the box name (everything before first delimiter)
+            local box
+            if [[ "$line" == *":-:+:"* ]]; then
+                box="${line%%:-:+:*}"
+            else
+                box="${line%%:*}"
+            fi
+            
             if [ "$box" = "$distrobox_name" ]; then
                 i=$((i+1))
                 
-                # Get everything after the first colon
-                local after_first_colon="${line#*:}"
-                
-                # Check if there's another colon AND it's not part of a URL (indicating new format with custom name)
-                if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
-                    # New format: box:name:command - extract the name (everything before second colon)
-                    local cmd_name="${after_first_colon%%:*}"
-                    cmd_color_code=$(generate_color_code "$distrobox_name:$cmd_name")
-                    printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd_name"
+                # Check for new exotic delimiter format first
+                if [[ "$line" == *":-:+:"* ]]; then
+                    # New format with exotic delimiter
+                    local after_delimiter="${line#*:-:+:}"
+                    if [[ "$after_delimiter" == *":-:+:"* ]]; then
+                        # Format: box:-:+:name:-:+:command
+                        local cmd_name="${after_delimiter%%:-:+:*}"
+                        cmd_color_code=$(generate_color_code "$distrobox_name:$cmd_name")
+                        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd_name"
+                    else
+                        # Format: box:-:+:command
+                        cmd_color_code=$(generate_color_code "$distrobox_name:$after_delimiter")
+                        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$after_delimiter"
+                    fi
                 else
-                    # Old format: box:command - show the command
-                    cmd_color_code=$(generate_color_code "$distrobox_name:$after_first_colon")
-                    printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$after_first_colon"
+                    # Legacy single-colon format
+                    local after_first_colon="${line#*:}"
+                    if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
+                        # Old format: box:name:command - extract the name
+                        local cmd_name="${after_first_colon%%:*}"
+                        cmd_color_code=$(generate_color_code "$distrobox_name:$cmd_name")
+                        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$cmd_name"
+                    else
+                        # Old format: box:command - show the command
+                        cmd_color_code=$(generate_color_code "$distrobox_name:$after_first_colon")
+                        printf "%b%d. %s\033[0m\n" "$cmd_color_code" "$i" "$after_first_colon"
+                    fi
                 fi
             fi
         done < "$HOTCMDS_FILE"
