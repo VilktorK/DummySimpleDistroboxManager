@@ -136,19 +136,19 @@ execute_hot_command() {
         # Extract the box name (everything before first colon)
         local box="${line%%:*}"
         if [ "$box" = "$distrobox_name" ]; then
-            # Count colons to determine format
-            local colon_count=$(echo "$line" | tr -cd ':' | wc -c)
+            # Get everything after the first colon
+            local after_first_colon="${line#*:}"
             
-            if [ "$colon_count" -eq 1 ]; then
-                # Old format: box:command
-                local after_first_colon="${line#*:}"
-                hot_cmds+=("$after_first_colon")
-            else
+            # Check if there's another colon AND it's not part of a URL (indicating new format with custom name)
+            if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
                 # New format: box:name:command
                 local temp="${line#*:}"        # Remove first part (box:)
                 local name="${temp%%:*}"       # Get the name part (up to first colon)
                 local command="${temp#"$name":}"  # Remove name and its colon, leaving just command
                 hot_cmds+=("$command")
+            else
+                # Old format: box:command
+                hot_cmds+=("$after_first_colon")
             fi
         fi
     done < "$HOTCMDS_FILE"
@@ -527,8 +527,8 @@ display_options_and_commands() {
                 # Get everything after the first colon
                 local after_first_colon="${line#*:}"
                 
-                # Check if there's another colon (indicating new format with custom name)
-                if [[ "$after_first_colon" == *:* ]]; then
+                # Check if there's another colon AND it's not part of a URL (indicating new format with custom name)
+                if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
                     # New format: box:name:command - extract the name (everything before second colon)
                     local cmd_name="${after_first_colon%%:*}"
                     cmd_color_code=$(generate_color_code "$distrobox_name:$cmd_name")
