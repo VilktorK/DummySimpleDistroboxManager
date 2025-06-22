@@ -24,11 +24,45 @@ touch "$IMAGES_FILE"
 
 # Create distroboximages.cfg and propagate it
 initialize_images_file() {
-    if [ ! -s "$IMAGES_FILE" ]; then  # Check if file is empty
-        echo "ubuntu:24.04" > "$IMAGES_FILE"
-        echo "archlinux:latest" >> "$IMAGES_FILE"
-        echo "debian:bookworm" >> "$IMAGES_FILE"
-        echo "registry.fedoraproject.org/fedora-toolbox:40" >> "$IMAGES_FILE"
+    # Define the default images
+    local default_images=(
+        "docker.io/library/ubuntu:24.04"
+        "docker.io/library/archlinux:latest"
+        "quay.io/toolbx-images/debian-toolbox:12"
+        "quay.io/fedora/fedora:41"
+        "docker.io/gentoo/stage3:latest"
+        "ghcr.io/ublue-os/bluefin-cli"
+        "ghcr.io/ublue-os/ubuntu-toolbox"
+        "ghcr.io/ublue-os/fedora-toolbox"
+        "ghcr.io/ublue-os/arch-distrobox"
+        "registry.opensuse.org/opensuse/leap:latest"
+        "registry.opensuse.org/opensuse/tumbleweed:latest"
+    )
+    
+    # Check if file doesn't exist or if it needs updating
+    local needs_update=false
+    
+    if [ ! -f "$IMAGES_FILE" ]; then
+        needs_update=true
+    else
+        # Check if all default images are present in the file
+        for image in "${default_images[@]}"; do
+            # Remove trailing spaces from image name for comparison
+            image_trimmed=$(echo "$image" | sed 's/[[:space:]]*$//')
+            if ! grep -qF "$image_trimmed" "$IMAGES_FILE"; then
+                needs_update=true
+                break
+            fi
+        done
+    fi
+    
+    # If update is needed, recreate the file with all default images
+    if [ "$needs_update" = true ]; then
+        > "$IMAGES_FILE"  # Clear the file
+        for image in "${default_images[@]}"; do
+            echo "$image" >> "$IMAGES_FILE"
+        done
+        echo "Updated $IMAGES_FILE with new default images"
     fi
 }
 
