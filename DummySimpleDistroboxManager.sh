@@ -696,6 +696,7 @@ handle_option() {
             echo "2. Remove hot command"
             echo "3. Rename hot command"
             echo "4. Edit hot command"
+            echo "5. Show hot commands config file path"
             read -p "Enter your choice: " modify_option
             if [ -z "$modify_option" ]; then
                 return 0
@@ -705,6 +706,12 @@ handle_option() {
                 2) remove_hot_command "$distrobox_name" ;;
                 3) rename_hot_command "$distrobox_name" ;;
                 4) edit_hot_command "$distrobox_name" ;;
+                5) 
+                    echo -e "\nHot commands configuration file path:"
+                    echo "$HOTCMDS_FILE"
+                    echo -e "\nPress Enter to continue..."
+                    read
+                    ;;
                 *) echo "Invalid choice" ;;
             esac
             ;;
