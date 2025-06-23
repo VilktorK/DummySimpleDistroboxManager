@@ -1179,12 +1179,12 @@ rename_hot_command() {
         if [ -z "$new_name" ]; then
             # Reset to default (no custom name)
             sed "${line_to_modify}d" "$HOTCMDS_FILE" > "$temp_file"
-            format_hot_command_line "$item_name" "" "$current_command" >> "$temp_file"
+            format_hot_command_line "$item_name" "$current_command" "" >> "$temp_file"
             echo -e "\033[1;32mHot command name reset to default.\033[0m"
         else
             # Set custom name
             sed "${line_to_modify}d" "$HOTCMDS_FILE" > "$temp_file"
-            format_hot_command_line "$item_name" "$new_name" "$current_command" >> "$temp_file"
+            format_hot_command_line "$item_name" "$current_command" "$new_name" >> "$temp_file"
             echo -e "\033[1;32mHot command renamed successfully to \"$new_name\".\033[0m"
         fi
 
