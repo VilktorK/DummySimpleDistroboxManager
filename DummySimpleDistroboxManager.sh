@@ -213,6 +213,9 @@ execute_hot_command() {
         cat > "$temp_script" << 'EOF'
 #!/bin/bash
 set -e
+# Source interactive shell configurations to have access to aliases and PATH
+[ -f ~/.bashrc ] && source ~/.bashrc
+[ -f ~/.bash_profile ] && source ~/.bash_profile
 EOF
         # Add the command on a separate line to avoid quoting issues
         echo "$command" >> "$temp_script"
