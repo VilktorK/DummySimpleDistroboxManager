@@ -1063,9 +1063,16 @@ add_hot_command() {
 
     read -p "Enter a name for this command (optional, press Enter to skip): " command_name
     
-    # Use new format helper function
-    local formatted_line=$(format_hot_command_line "$item_name" "$new_command" "$command_name")
-    echo "$formatted_line" >> "$HOTCMDS_FILE"
+    # Get per-container hot commands file
+    local container_hotcmds_file=$(get_container_hotcmds_file "$item_name")
+    mkdir -p "$(dirname "$container_hotcmds_file")"
+    
+    # Use simplified per-container format: name:-:+:command
+    if [ -n "$command_name" ]; then
+        echo "$command_name:-:+:$new_command" >> "$container_hotcmds_file"
+    else
+        echo "$new_command:-:+:$new_command" >> "$container_hotcmds_file"
+    fi
 
     echo "Hot command added successfully."
     echo "Press Enter to continue..."
@@ -1075,59 +1082,39 @@ add_hot_command() {
 rename_hot_command() {
     local item_name="$1"
     clear
+    
+    # Get per-container hot commands file
+    local container_hotcmds_file=$(get_container_hotcmds_file "$item_name")
+    
+    if [ ! -f "$container_hotcmds_file" ]; then
+        echo "No hot commands to rename for $item_name."
+        echo "Press Enter to continue..."
+        read
+        return
+    fi
+
     local hot_cmds=()
     local hot_cmd_names=()
-    local hot_cmd_lines=()
     local line_num=1
 
-    # Collect commands, their names, and line numbers
+    # Collect commands and their names from per-container file
     while IFS= read -r line || [ -n "$line" ]; do
         # Skip empty lines
-        if [ -n "$line" ]; then
-            # Extract the box name (everything before first delimiter)
-            local box
-            if [[ "$line" == *":-:+:"* ]]; then
-                box="${line%%:-:+:*}"
-            else
-                box="${line%%:*}"
-            fi
-            
-            if [ "$box" = "$item_name" ]; then
-                # Check for new exotic delimiter format first
-                if [[ "$line" == *":-:+:"* ]]; then
-                    # New format with exotic delimiter
-                    local after_delimiter="${line#*:-:+:}"
-                    if [[ "$after_delimiter" == *":-:+:"* ]]; then
-                        # Format: box:-:+:name:-:+:command
-                        local cmd_name="${after_delimiter%%:-:+:*}"
-                        local cmd="${after_delimiter#*:-:+:}"
-                        hot_cmds+=("$cmd")
-                        hot_cmd_names+=("$cmd_name")
-                    else
-                        # Format: box:-:+:command
-                        hot_cmds+=("$after_delimiter")
-                        hot_cmd_names+=("$after_delimiter")
-                    fi
-                else
-                    # Legacy single-colon format
-                    local after_first_colon="${line#*:}"
-                    if [[ "$after_first_colon" == *:* ]] && [[ "$after_first_colon" != *"://"* ]] && [[ "${after_first_colon#*:}" != *"://"* ]]; then
-                        # Old format: box:name:command
-                        local cmd_name="${after_first_colon%%:*}"
-                        local cmd="${after_first_colon#*:}"
-                        hot_cmds+=("$cmd")
-                        hot_cmd_names+=("$cmd_name")
-                    else
-                        # Old format: box:command
-                        hot_cmds+=("$after_first_colon")
-                        hot_cmd_names+=("$after_first_colon")
-                    fi
-                fi
-                hot_cmd_lines+=("$line_num")
-            fi
+        [ -z "$line" ] && continue
+        
+        # Parse per-container format: name:-:+:command
+        if [[ "$line" == *":-:+:"* ]]; then
+            local cmd_name="${line%%:-:+:*}"
+            local cmd="${line#*:-:+:}"
+            hot_cmds+=("$cmd")
+            hot_cmd_names+=("$cmd_name")
+        else
+            # Fallback for malformed lines
+            hot_cmds+=("$line")
+            hot_cmd_names+=("$line")
         fi
         line_num=$((line_num+1))
-    done < "$HOTCMDS_FILE"
+    done < "$container_hotcmds_file"
 
     if [ ${#hot_cmds[@]} -eq 0 ]; then
         echo "No hot commands to rename for $item_name."
@@ -1163,7 +1150,6 @@ rename_hot_command() {
     # Convert menu number to array index
     if [[ "$rename_num" =~ ^[0-9]+$ ]] && [ "$rename_num" -ge $CONTAINER_MENU_ITEMS ] && [ "$rename_num" -le $(($CONTAINER_MENU_ITEMS - 1 + ${#hot_cmds[@]})) ]; then
         local array_index=$((rename_num - $CONTAINER_MENU_ITEMS))
-        local line_to_modify=${hot_cmd_lines[$array_index]}
         local current_command="${hot_cmds[$array_index]}"
         local current_name="${hot_cmd_names[$array_index]}"
 
@@ -1174,22 +1160,36 @@ rename_hot_command() {
 
         read -p "Enter new name for this command (or press Enter to reset to default): " new_name
 
-        # Create a temp file and modify the line
-        temp_file=$(mktemp)
+        # Create a temp file and rebuild the per-container file
+        local temp_file=$(mktemp)
+        local line_index=0
+        
+        while IFS= read -r line || [ -n "$line" ]; do
+            [ -z "$line" ] && continue
+            
+            if [ $line_index -eq $array_index ]; then
+                # Replace this line with the new name
+                if [ -z "$new_name" ]; then
+                    # Reset to default (command as name)
+                    echo "$current_command:-:+:$current_command" >> "$temp_file"
+                else
+                    # Set custom name
+                    echo "$new_name:-:+:$current_command" >> "$temp_file"
+                fi
+            else
+                # Keep existing line
+                echo "$line" >> "$temp_file"
+            fi
+            line_index=$((line_index+1))
+        done < "$container_hotcmds_file"
+
+        mv "$temp_file" "$container_hotcmds_file"
+        
         if [ -z "$new_name" ]; then
-            # Reset to default (no custom name)
-            sed "${line_to_modify}d" "$HOTCMDS_FILE" > "$temp_file"
-            format_hot_command_line "$item_name" "$current_command" "" >> "$temp_file"
             echo -e "\033[1;32mHot command name reset to default.\033[0m"
         else
-            # Set custom name
-            sed "${line_to_modify}d" "$HOTCMDS_FILE" > "$temp_file"
-            format_hot_command_line "$item_name" "$current_command" "$new_name" >> "$temp_file"
             echo -e "\033[1;32mHot command renamed successfully to \"$new_name\".\033[0m"
         fi
-
-        sort "$temp_file" > "$HOTCMDS_FILE"
-        rm "$temp_file"
     else
         echo "Invalid selection."
     fi
