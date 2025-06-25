@@ -41,7 +41,10 @@ From the main menu, select a distrobox by its number to access these features:
 
 2. Modify hot commands
    - Add custom commands for quick access
-   - Remove existing hot commands
+   - Remove existing hot commands 
+   - Rename hot commands to give them custom names
+   - Edit existing hot commands
+   - Show config file paths
    - Hot commands are executed inside of the distrobox's working directory
    
 3. Kill distrobox
@@ -50,11 +53,17 @@ From the main menu, select a distrobox by its number to access these features:
 4. Export application
    - Makes applications installed in the distrobox available on the host system using `distrobox-export`
 
+5. Manage container startup commands
+   - Add commands that run automatically when entering the distrobox
+   - Can be set globally or per-container
+
 ## Hot Commands
 - Custom commands that can be executed by pressing their associated numbers
-- Appear as numbered options (5 and above) in the distrobox management menu
+- Appear as numbered options (6 and above) in the distrobox management menu
 - Executed within their distrobox's working directory
-- Saved to `distroboxhotcmds.cfg`
+- Each container has its own hot commands file: `hotcommands/{container_name}.cfg`
+- Commands can be given custom names for easier identification
+- Hot commands automatically load your shell environment (bashrc, bash_profile)
 
 ## Exiting a Distrobox
 - Type `exit` to leave an active distrobox and return to the main menu
@@ -69,11 +78,30 @@ From the main menu, select a distrobox by its number to access these features:
 Deletion process:
 - Removes the container
 - Deletes the working directory
-- Removes associated hot commands from `distroboxhotcmds.cfg`
+- Removes associated hot commands file
+
+## Sorting and Organization
+
+### Sorting Options
+Available from Options menu (4. Manage sorting preferences):
+- **Alphabetical** - Default sorting by container name
+- **Most Recently Created** - Newest containers first  
+- **Most Recently Used** - Recently accessed containers first
+
+### Favorites System
+Available from Options menu (6. Manage favorites):
+- Mark containers as favorites for quick access
+- Favorites appear at the top of the main menu with ★ symbol
+- Favorites respect your chosen sorting method
+- Toggle favorite status on/off for any container
 
 ## Config Location
 
 - Configuration directory: `~/.config/dummysimpledistroboxmanager/`
 - Settings file: `settings.cfg`
-- Hot commands: `distroboxhotcmds.cfg`
+- Hot commands directory: `hotcommands/`
+- Per-container hot commands: `hotcommands/{container_name}.cfg`
 - Image list: `distroboximages.cfg`
+- Favorites: `favorites.cfg`
+- Creation times: `creation_time.cfg`
+- Last access: `last_access.cfg`

@@ -10,6 +10,7 @@ A dummy simple BASH script that simplifies the process of creating and using Dis
 - Use "Hot Commands" for easily executing commands inside of the distrobox container without having to type or memorize them.
 - Automatically create and enter "Working Directories" to keep distrobox container files from polluting the user's home directory.
 - Customize "Startup Commands" that can be executed automatically when the distrobox is activated.
+- Organize containers with favorites and sorting (alphabetical, recently created, recently used).
 
 ## Requirements
 Just Distrobox and BASH.
