@@ -247,7 +247,7 @@ execute_hot_command() {
         # Write the script more carefully to handle quotes and special characters
         cat > "$temp_script" << 'EOF'
 #!/bin/bash
-set -e
+# set -e removed to preserve output
 # Source interactive shell configurations to have access to aliases and PATH
 [ -f ~/.bashrc ] && source ~/.bashrc
 [ -f ~/.bash_profile ] && source ~/.bash_profile
