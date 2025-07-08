@@ -248,6 +248,10 @@ execute_hot_command() {
         cat > "$temp_script" << 'EOF'
 #!/bin/bash
 # set -e removed to preserve output
+
+# Disable bracketed paste mode
+printf '\e[?2004l'
+
 # Source interactive shell configurations to have access to aliases and PATH
 [ -f ~/.bashrc ] && source ~/.bashrc
 [ -f ~/.bash_profile ] && source ~/.bash_profile
@@ -256,8 +260,14 @@ EOF
         echo "$command" >> "$temp_script"
         chmod +x "$temp_script"
         
+        # Disable bracketed paste mode before entering distrobox
+        printf '\e[?2004l' 2>/dev/null
+        
         # Execute the script inside the distrobox
         distrobox enter "$distrobox_name" -- bash "$temp_script"
+        
+        # Disable bracketed paste mode after exiting distrobox
+        printf '\e[?2004l' 2>/dev/null
         
         # Clean up
         rm "$temp_script"
